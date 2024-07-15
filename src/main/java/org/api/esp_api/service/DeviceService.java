@@ -29,6 +29,10 @@ public class DeviceService {
         return deviceId;
     }
 
+    public void deleteDevice(String deviceId) {
+        deviceRepository.deleteById(deviceId);
+    }
+
     private String generateUniqueId() {
         return UUID.randomUUID().toString();
     }
