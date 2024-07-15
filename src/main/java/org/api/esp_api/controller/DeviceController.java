@@ -1,7 +1,6 @@
 package org.api.esp_api.controller;
 
-import org.api.esp_api.model.Device;
-import org.api.esp_api.model.DeviceRegisterRequest;
+import org.api.esp_api.dto.DeviceRegisterRequestDTO;
 import org.api.esp_api.service.DeviceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,8 +19,8 @@ public class DeviceController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> registerDevice(@RequestBody DeviceRegisterRequest deviceRegisterRequest) {
-        String deviceId = deviceService.registerDevice(deviceRegisterRequest);
+    public ResponseEntity<String> registerDevice(@RequestBody DeviceRegisterRequestDTO deviceRegisterRequestDTO) {
+        String deviceId = deviceService.registerDevice(deviceRegisterRequestDTO);
         return ResponseEntity.ok(deviceId);
     }
 }

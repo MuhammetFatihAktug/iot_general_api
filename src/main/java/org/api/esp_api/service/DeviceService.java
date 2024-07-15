@@ -1,7 +1,7 @@
 package org.api.esp_api.service;
 
-import org.api.esp_api.model.Device;
-import org.api.esp_api.model.DeviceRegisterRequest;
+import org.api.esp_api.dto.DeviceRegisterRequestDTO;
+import org.api.esp_api.entities.Device;
 import org.api.esp_api.repository.DeviceRepository;
 import org.springframework.stereotype.Service;
 
@@ -16,9 +16,16 @@ public class DeviceService {
         this.deviceRepository = deviceRepository;
     }
 
-    public String registerDevice(DeviceRegisterRequest deviceRegisterRequest) {
+    public String registerDevice(DeviceRegisterRequestDTO deviceRegisterRequestDTO) {
         String deviceId = generateUniqueId();
-        deviceRepository.save(new Device(deviceId, deviceRegisterRequest.getName(), deviceRegisterRequest.getType()));
+
+        Device device = Device.builder().name(deviceRegisterRequestDTO.name())
+                .id(deviceId)
+                .type(deviceRegisterRequestDTO.type())
+                .build();
+
+        deviceRepository.save(device);
+
         return deviceId;
     }
 
