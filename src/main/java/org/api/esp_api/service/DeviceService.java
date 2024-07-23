@@ -1,10 +1,11 @@
 package org.api.esp_api.service;
 
-import org.api.esp_api.dto.DeviceRegisterRequestDTO;
 import org.api.esp_api.entities.Device;
 import org.api.esp_api.repository.DeviceRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -16,21 +17,28 @@ public class DeviceService {
         this.deviceRepository = deviceRepository;
     }
 
-    public String registerDevice(DeviceRegisterRequestDTO deviceRegisterRequestDTO) {
-        String deviceId = generateUniqueId();
-
-        Device device = Device.builder().name(deviceRegisterRequestDTO.name())
-                .id(deviceId)
-                .type(deviceRegisterRequestDTO.type())
-                .build();
-
-        deviceRepository.save(device);
-
-        return deviceId;
+    @Transactional
+    public void saveDevice(String ipAddress, Map<String, Object> attributes) {
+        Device existingDevice = deviceRepository.findByIpAddress(ipAddress);
+        if (existingDevice != null) {
+            existingDevice.setName(attributes.get("name").toString());
+            existingDevice.setType(attributes.get("type").toString());
+            existingDevice.setStatus("active");
+            deviceRepository.save(existingDevice);
+        } else {
+            Device device = Device.builder()
+                    .ipAddress(ipAddress)
+                    .name(attributes.get("name").toString())
+                    .type(attributes.get("type").toString())
+                    .status("active")
+                    .build();
+            deviceRepository.save(device);
+        }
     }
 
-    public void deleteDevice(String deviceId) {
-        deviceRepository.deleteById(deviceId);
+    @Transactional
+    public void deleteDevice(String ipAddress) {
+        deviceRepository.deleteDeviceByIpAddress(ipAddress);
     }
 
     private String generateUniqueId() {
