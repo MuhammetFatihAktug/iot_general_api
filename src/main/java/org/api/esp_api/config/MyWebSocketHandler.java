@@ -2,7 +2,8 @@ package org.api.esp_api.config;
 
 import org.api.esp_api.service.DeviceService;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.api.esp_api.service.KafkaProducer;
+import org.api.esp_api.service.KafkaTopicService;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -19,16 +20,19 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class MyWebSocketHandler extends TextWebSocketHandler {
-
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final DeviceService deviceService;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final Map<String, Long> lastMessageTime = new ConcurrentHashMap<>();
     private final long TIMEOUT_THRESHOLD;
+    private final KafkaProducer kafkaProducer;
+    private final KafkaTopicService kafkaTopicService;
 
-    public MyWebSocketHandler(DeviceService deviceService, long timeoutThreshold) {
+    public MyWebSocketHandler(DeviceService deviceService, long timeoutThreshold, KafkaProducer kafkaProducer, KafkaTopicService kafkaTopicService) {
         this.deviceService = deviceService;
         this.TIMEOUT_THRESHOLD = timeoutThreshold;
+        this.kafkaProducer = kafkaProducer;
+        this.kafkaTopicService = kafkaTopicService;
         startTimeoutChecker();
     }
 
@@ -46,18 +50,26 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
         deviceService.saveDevice(ipAddress, attributes);
         sessions.put(ipAddress, session);
         lastMessageTime.put(ipAddress, System.currentTimeMillis());
+
+        if (ipAddress != null) {
+            String topic = "iot-data-" + ipAddress;
+            kafkaTopicService.createTopicIfNotExists(topic);
+            kafkaProducer.sendMessage(topic, ipAddress, "Connected: " + attributes);
+        }
+
     }
 
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws IOException {
         InetSocketAddress remoteAddress = (InetSocketAddress) session.getRemoteAddress();
         String ipAddress = remoteAddress != null ? remoteAddress.getAddress().getHostAddress() : null;
-
         String payload = message.getPayload();
-        session.sendMessage(new TextMessage("Data: " + payload));
 
         if (ipAddress != null) {
             lastMessageTime.put(ipAddress, System.currentTimeMillis());
+
+            String topic = "iot-data-" + ipAddress;
+            kafkaProducer.sendMessage(topic, ipAddress, payload);
         }
     }
 
@@ -65,7 +77,10 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         InetSocketAddress remoteAddress = (InetSocketAddress) session.getRemoteAddress();
         String ipAddress = remoteAddress != null ? remoteAddress.getAddress().getHostAddress() : null;
-
+        if (ipAddress != null) {
+            String topic = "iot-data-" + ipAddress;
+            kafkaProducer.sendMessage(topic, ipAddress, "Connection Closed");
+        }
         sessions.remove(ipAddress);
         lastMessageTime.remove(ipAddress);
         deviceService.deleteDevice(ipAddress);
